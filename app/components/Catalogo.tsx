@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import CartaoProduto from './CartaoProduto'
 import ListaProduto from './ListaProduto'
+import { useOrcamento } from '@/app/context/OrcamentoContext'
 
 interface Produto {
   _id: string
@@ -52,6 +54,7 @@ export default function Catalogo() {
   const [dados, setDados] = useState<Resposta | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [vista, setVista] = useState<'card' | 'lista'>('lista')
+  const { totalItens } = useOrcamento()
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -112,6 +115,17 @@ export default function Catalogo() {
             <p className="text-sm text-gray-500">Tabela Ceará — Abril 2025</p>
           </div>
           <div className="flex gap-2 sm:ml-auto w-full sm:w-auto items-center">
+            <Link
+              href="/orcamento"
+              className="relative shrink-0 flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              🛒 Orçamento
+              {totalItens > 0 && (
+                <span className="bg-white text-blue-600 text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">
+                  {totalItens}
+                </span>
+              )}
+            </Link>
             <div className="relative flex-1 sm:flex-none">
               <input
                 type="text"
@@ -181,6 +195,7 @@ export default function Catalogo() {
                 <span className="text-xs font-semibold text-blue-400 uppercase tracking-wide text-center w-[90px]">Master</span>
                 <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wide text-center w-[90px]">Inner</span>
                 <span className="text-xs font-semibold text-orange-400 uppercase tracking-wide text-center w-[90px]">Unitário</span>
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-center w-[90px]">Qtd. livre</span>
               </div>
             </div>
             <div className="divide-y divide-gray-100">

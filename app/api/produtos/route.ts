@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import imagensMapa from '@/lib/imagens_mapa.json'
 
 const LIMITE = 24
+const mapa = imagensMapa as Record<string, string>
+
+function comImagem(produtos: Produto[]) {
+  return produtos.map(p => ({ ...p, imagem: mapa[String(p.cod)] || null }))
+}
 
 async function getProdutosLocal(busca: string, pagina: number) {
   const dados = await import('@/lib/dados.json')
@@ -14,7 +20,7 @@ async function getProdutosLocal(busca: string, pagina: number) {
   const total = sorted.length
   const produtos = sorted.slice((pagina - 1) * LIMITE, pagina * LIMITE)
 
-  return { produtos, total, paginas: Math.ceil(total / LIMITE), paginaAtual: pagina }
+  return { produtos: comImagem(produtos), total, paginas: Math.ceil(total / LIMITE), paginaAtual: pagina }
 }
 
 async function getProdutosMongo(busca: string, pagina: number) {
@@ -34,7 +40,7 @@ async function getProdutosMongo(busca: string, pagina: number) {
     .limit(LIMITE)
     .lean()
 
-  return { produtos, total, paginas: Math.ceil(total / LIMITE), paginaAtual: pagina }
+  return { produtos: comImagem(produtos as Produto[]), total, paginas: Math.ceil(total / LIMITE), paginaAtual: pagina }
 }
 
 interface Produto {
