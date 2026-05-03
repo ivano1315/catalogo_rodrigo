@@ -19,6 +19,7 @@ export interface ProdutoOrcamento {
 export interface ItemOrcamento {
   produto: ProdutoOrcamento
   quantidade: number
+  precoCustom: number | null  // null = usa faixa automática; number = preço editado manualmente
 }
 
 export function calcularPreco(produto: ProdutoOrcamento, quantidade: number): { preco: number; faixa: 'master' | 'inner' | 'unitario' } {
@@ -27,11 +28,17 @@ export function calcularPreco(produto: ProdutoOrcamento, quantidade: number): { 
   return { preco: produto.unitario, faixa: 'unitario' }
 }
 
+export function precoEfetivo(item: ItemOrcamento): number {
+  if (item.precoCustom !== null) return item.precoCustom
+  return calcularPreco(item.produto, item.quantidade).preco
+}
+
 interface OrcamentoContextType {
   itens: ItemOrcamento[]
   adicionar: (produto: ProdutoOrcamento, quantidade?: number) => void
   remover: (cod: number) => void
   atualizarQtd: (cod: number, quantidade: number) => void
+  atualizarPreco: (cod: number, preco: number | null) => void
   limpar: () => void
   total: number
   totalItens: number
@@ -46,7 +53,7 @@ export function OrcamentoProvider({ children }: { children: ReactNode }) {
     setItens(prev => {
       if (prev.find(i => i.produto.cod === produto.cod)) return prev
       const qtdInicial = quantidade ?? produto.pacUnid ?? 1
-      return [...prev, { produto, quantidade: qtdInicial }]
+      return [...prev, { produto, quantidade: qtdInicial, precoCustom: null }]
     })
   }, [])
 
@@ -58,17 +65,18 @@ export function OrcamentoProvider({ children }: { children: ReactNode }) {
     setItens(prev => prev.map(i => i.produto.cod === cod ? { ...i, quantidade: Math.max(1, quantidade) } : i))
   }, [])
 
+  const atualizarPreco = useCallback((cod: number, preco: number | null) => {
+    setItens(prev => prev.map(i => i.produto.cod === cod ? { ...i, precoCustom: preco } : i))
+  }, [])
+
   const limpar = useCallback(() => setItens([]), [])
 
-  const total = itens.reduce((acc, item) => {
-    const { preco } = calcularPreco(item.produto, item.quantidade)
-    return acc + preco * item.quantidade
-  }, 0)
+  const total = itens.reduce((acc, item) => acc + precoEfetivo(item) * item.quantidade, 0)
 
   const totalItens = itens.length
 
   return (
-    <OrcamentoContext.Provider value={{ itens, adicionar, remover, atualizarQtd, limpar, total, totalItens }}>
+    <OrcamentoContext.Provider value={{ itens, adicionar, remover, atualizarQtd, atualizarPreco, limpar, total, totalItens }}>
       {children}
     </OrcamentoContext.Provider>
   )

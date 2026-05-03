@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useOrcamento, calcularPreco } from '@/app/context/OrcamentoContext'
+import { useOrcamento, calcularPreco, precoEfetivo } from '@/app/context/OrcamentoContext'
 import Image from 'next/image'
 import Link from 'next/link'
 
@@ -10,16 +10,11 @@ function fmt(valor: number) {
 }
 
 const BADGE_FAIXA = {
-  master: 'bg-blue-100 text-blue-700',
-  inner: 'bg-emerald-100 text-emerald-700',
+  master:   'bg-blue-100 text-blue-700',
+  inner:    'bg-emerald-100 text-emerald-700',
   unitario: 'bg-orange-100 text-orange-700',
 }
-
-const LABEL_FAIXA = {
-  master: 'Master',
-  inner: 'Inner',
-  unitario: 'Unitário',
-}
+const LABEL_FAIXA = { master: 'Master', inner: 'Inner', unitario: 'Unitário' }
 
 const CONDICOES = [
   'ANTECIPADO',
@@ -30,12 +25,8 @@ const CONDICOES = [
 ]
 
 interface Cliente {
-  razaoSocial: string
-  nomeFantasia: string
-  cnpj: string
-  cidade: string
-  telefone: string
-  condicao: string
+  razaoSocial: string; nomeFantasia: string; cnpj: string
+  cidade: string; telefone: string; condicao: string
 }
 
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
@@ -50,19 +41,32 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
 const inputCls = 'border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white'
 
 export default function OrcamentoTela() {
-  const { itens, remover, atualizarQtd, limpar, total } = useOrcamento()
+  const { itens, remover, atualizarQtd, atualizarPreco, limpar, total } = useOrcamento()
 
   const [cliente, setCliente] = useState<Cliente>({
-    razaoSocial: '',
-    nomeFantasia: '',
-    cnpj: '',
-    cidade: '',
-    telefone: '',
-    condicao: '',
+    razaoSocial: '', nomeFantasia: '', cnpj: '', cidade: '', telefone: '', condicao: '',
   })
+  // precoInput: valor string do input de cada item enquanto está sendo editado
+  const [precoInput, setPrecoInput] = useState<Record<number, string>>({})
 
   function set(campo: keyof Cliente, valor: string) {
     setCliente(prev => ({ ...prev, [campo]: valor }))
+  }
+
+  function ativarPromo(cod: number, precoAtual: number) {
+    setPrecoInput(prev => ({ ...prev, [cod]: String(precoAtual).replace('.', ',') }))
+    atualizarPreco(cod, precoAtual)
+  }
+
+  function desativarPromo(cod: number) {
+    setPrecoInput(prev => { const n = { ...prev }; delete n[cod]; return n })
+    atualizarPreco(cod, null)
+  }
+
+  function commitPreco(cod: number) {
+    const raw = (precoInput[cod] ?? '').replace(',', '.')
+    const valor = parseFloat(raw)
+    if (!isNaN(valor) && valor >= 0) atualizarPreco(cod, valor)
   }
 
   async function exportarPDF() {
@@ -72,16 +76,13 @@ export default function OrcamentoTela() {
     const doc = new jsPDF({ orientation: 'landscape' })
     const dataHoje = new Date().toLocaleDateString('pt-BR')
 
-    // Cabeçalho
     doc.setFontSize(18)
     doc.setTextColor(30, 30, 30)
     doc.text('Orçamento — Waves Plus', 14, 18)
-
     doc.setFontSize(9)
     doc.setTextColor(120, 120, 120)
     doc.text(`Gerado em ${dataHoje}`, 14, 24)
 
-    // Dados do cliente
     let y = 32
     doc.setFontSize(10)
     doc.setTextColor(30, 30, 30)
@@ -89,40 +90,32 @@ export default function OrcamentoTela() {
     doc.text('Dados do Cliente', 14, y)
     doc.setFont('helvetica', 'normal')
     y += 6
-
-    const col1 = 14
-    const col2 = 110
     doc.setFontSize(9)
     doc.setTextColor(80, 80, 80)
-
-    if (cliente.razaoSocial) { doc.text(`Razão Social: ${cliente.razaoSocial}`, col1, y); }
-    if (cliente.nomeFantasia) { doc.text(`Nome Fantasia: ${cliente.nomeFantasia}`, col2, y); }
-    if (cliente.razaoSocial || cliente.nomeFantasia) y += 5
-
-    if (cliente.cnpj) { doc.text(`CNPJ: ${cliente.cnpj}`, col1, y); }
-    if (cliente.cidade) { doc.text(`Cidade: ${cliente.cidade}`, col2, y); }
-    if (cliente.cnpj || cliente.cidade) y += 5
-
-    if (cliente.telefone) { doc.text(`Telefone: ${cliente.telefone}`, col1, y); }
-    if (cliente.condicao) { doc.text(`Cond. Pagamento: ${cliente.condicao}`, col2, y); }
-    if (cliente.telefone || cliente.condicao) y += 5
-
+    const c1 = 14, c2 = 110
+    if (cliente.razaoSocial || cliente.nomeFantasia) {
+      if (cliente.razaoSocial) doc.text(`Razão Social: ${cliente.razaoSocial}`, c1, y)
+      if (cliente.nomeFantasia) doc.text(`Nome Fantasia: ${cliente.nomeFantasia}`, c2, y)
+      y += 5
+    }
+    if (cliente.cnpj || cliente.cidade) {
+      if (cliente.cnpj) doc.text(`CNPJ: ${cliente.cnpj}`, c1, y)
+      if (cliente.cidade) doc.text(`Cidade: ${cliente.cidade}`, c2, y)
+      y += 5
+    }
+    if (cliente.telefone || cliente.condicao) {
+      if (cliente.telefone) doc.text(`Telefone: ${cliente.telefone}`, c1, y)
+      if (cliente.condicao) doc.text(`Cond. Pagamento: ${cliente.condicao}`, c2, y)
+      y += 5
+    }
     y += 2
 
-    // Tabela de produtos
     const linhas = itens.map((item, idx) => {
-      const { preco, faixa } = calcularPreco(item.produto, item.quantidade)
+      const { faixa } = calcularPreco(item.produto, item.quantidade)
+      const preco = precoEfetivo(item)
       const subtotal = preco * item.quantidade
-      return [
-        idx + 1,
-        item.produto.cod,
-        item.produto.descricao,
-        item.produto.unidade,
-        item.quantidade,
-        LABEL_FAIXA[faixa],
-        fmt(preco),
-        fmt(subtotal),
-      ]
+      const faixaLabel = item.precoCustom !== null ? 'Promoção' : LABEL_FAIXA[faixa]
+      return [idx + 1, item.produto.cod, item.produto.descricao, item.produto.unidade, item.quantidade, faixaLabel, fmt(preco), fmt(subtotal)]
     })
 
     autoTable(doc, {
@@ -134,14 +127,9 @@ export default function OrcamentoTela() {
       footStyles: { fillColor: [243, 244, 246], textColor: [30, 30, 30], fontStyle: 'bold', fontSize: 10 },
       bodyStyles: { fontSize: 8 },
       columnStyles: {
-        0: { cellWidth: 8, halign: 'center' },
-        1: { cellWidth: 18 },
-        2: { cellWidth: 'auto' },
-        3: { cellWidth: 12, halign: 'center' },
-        4: { cellWidth: 14, halign: 'center' },
-        5: { cellWidth: 20, halign: 'center' },
-        6: { cellWidth: 26, halign: 'right' },
-        7: { cellWidth: 28, halign: 'right' },
+        0: { cellWidth: 8, halign: 'center' }, 1: { cellWidth: 18 }, 2: { cellWidth: 'auto' },
+        3: { cellWidth: 12, halign: 'center' }, 4: { cellWidth: 14, halign: 'center' },
+        5: { cellWidth: 22, halign: 'center' }, 6: { cellWidth: 26, halign: 'right' }, 7: { cellWidth: 28, halign: 'right' },
       },
       alternateRowStyles: { fillColor: [249, 250, 251] },
       margin: { left: 14, right: 14 },
@@ -152,6 +140,76 @@ export default function OrcamentoTela() {
       : `orcamento-${new Date().toISOString().slice(0, 10)}.pdf`
 
     doc.save(nomeArq)
+  }
+
+  async function exportarExcel() {
+    const { utils, writeFile } = await import('xlsx')
+
+    const dataHoje = new Date().toLocaleDateString('pt-BR')
+
+    // Bloco de dados do cliente
+    const infoCliente = [
+      ['Orçamento — Waves Plus'],
+      [`Gerado em: ${dataHoje}`],
+      [],
+      ['DADOS DO CLIENTE'],
+      ['Razão Social',        cliente.razaoSocial  || '-'],
+      ['Nome Fantasia',       cliente.nomeFantasia || '-'],
+      ['CNPJ',                cliente.cnpj         || '-'],
+      ['Cidade',              cliente.cidade       || '-'],
+      ['Telefone',            cliente.telefone     || '-'],
+      ['Cond. Pagamento',     cliente.condicao     || '-'],
+      [],
+    ]
+
+    // Cabeçalho e linhas dos produtos
+    const cabecalho = ['#', 'Código', 'Descrição', 'Unidade', 'Quantidade', 'Faixa', 'Preço Unit. (R$)', 'Subtotal (R$)']
+
+    const linhas = itens.map((item, idx) => {
+      const { faixa } = calcularPreco(item.produto, item.quantidade)
+      const preco     = precoEfetivo(item)
+      const subtotal  = preco * item.quantidade
+      return [
+        idx + 1,
+        item.produto.cod,
+        item.produto.descricao,
+        item.produto.unidade,
+        item.quantidade,
+        item.precoCustom !== null ? 'Promoção' : LABEL_FAIXA[faixa],
+        preco,
+        subtotal,
+      ]
+    })
+
+    const totalUnidades = itens.reduce((a, i) => a + i.quantidade, 0)
+    const rodape = [
+      [],
+      ['', '', '', '', totalUnidades, '', 'TOTAL', total],
+    ]
+
+    const wsData = [...infoCliente, cabecalho, ...linhas, ...rodape]
+    const ws = utils.aoa_to_sheet(wsData)
+
+    // Larguras das colunas
+    ws['!cols'] = [
+      { wch: 4  },  // #
+      { wch: 10 },  // Código
+      { wch: 55 },  // Descrição
+      { wch: 8  },  // Unidade
+      { wch: 12 },  // Quantidade
+      { wch: 12 },  // Faixa
+      { wch: 18 },  // Preço Unit.
+      { wch: 18 },  // Subtotal
+    ]
+
+    const wb = utils.book_new()
+    utils.book_append_sheet(wb, ws, 'Orçamento')
+
+    const nomeArq = cliente.nomeFantasia || cliente.razaoSocial
+      ? `orcamento-${(cliente.nomeFantasia || cliente.razaoSocial).replace(/\s+/g, '-').toLowerCase()}-${dataHoje.replace(/\//g, '-')}.xlsx`
+      : `orcamento-${new Date().toISOString().slice(0, 10)}.xlsx`
+
+    writeFile(wb, nomeArq)
   }
 
   if (itens.length === 0) {
@@ -170,18 +228,13 @@ export default function OrcamentoTela() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link href="/" className="text-gray-400 hover:text-gray-600 transition-colors text-sm">
-            ← Catálogo
-          </Link>
+          <Link href="/" className="text-gray-400 hover:text-gray-600 transition-colors text-sm">← Catálogo</Link>
           <h1 className="text-xl font-bold text-gray-900">Orçamento</h1>
           <span className="text-sm text-gray-400">{itens.length} {itens.length === 1 ? 'item' : 'itens'}</span>
           <div className="ml-auto flex gap-2">
-            <button onClick={limpar} className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-              Limpar tudo
-            </button>
-            <button onClick={exportarPDF} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors">
-              ↓ Exportar PDF
-            </button>
+            <button onClick={limpar} className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors">Limpar tudo</button>
+            <button onClick={exportarExcel} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors">↓ Excel</button>
+            <button onClick={exportarPDF} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors">↓ PDF</button>
           </div>
         </div>
       </header>
@@ -217,49 +270,91 @@ export default function OrcamentoTela() {
         </div>
 
         {/* Cabeçalho da tabela */}
-        <div className="hidden md:grid grid-cols-[48px_64px_1fr_80px_130px_100px_110px_40px] gap-3 px-4 py-2 bg-gray-100 rounded-lg text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        <div className="hidden md:grid grid-cols-[48px_64px_1fr_64px_130px_160px_110px_40px] gap-3 px-4 py-2 bg-gray-100 rounded-lg text-xs font-semibold text-gray-500 uppercase tracking-wide">
           <span></span>
           <span>Código</span>
           <span>Descrição</span>
           <span className="text-center">Unid.</span>
           <span className="text-center">Quantidade</span>
-          <span className="text-center">Faixa / Preço</span>
+          <span className="text-center">Preço unit.</span>
           <span className="text-right">Subtotal</span>
           <span></span>
         </div>
 
         {itens.map(item => {
-          const { preco, faixa } = calcularPreco(item.produto, item.quantidade)
+          const { faixa } = calcularPreco(item.produto, item.quantidade)
+          const preco = precoEfetivo(item)
           const subtotal = preco * item.quantidade
+          const emPromo = item.precoCustom !== null
 
           return (
-            <div key={item.produto.cod} className="bg-white rounded-xl border border-gray-100 px-4 py-3 grid grid-cols-1 md:grid-cols-[48px_64px_1fr_80px_130px_100px_110px_40px] gap-3 items-center hover:shadow-sm transition-shadow">
+            <div key={item.produto.cod} className={`bg-white rounded-xl border px-4 py-3 grid grid-cols-1 md:grid-cols-[48px_64px_1fr_64px_130px_160px_110px_40px] gap-3 items-center hover:shadow-sm transition-shadow ${emPromo ? 'border-purple-200' : 'border-gray-100'}`}>
+
+              {/* Imagem */}
               <div className="relative w-12 h-12 bg-gray-50 rounded-lg overflow-hidden flex items-center justify-center shrink-0">
-                {item.produto.imagem ? (
-                  <Image src={item.produto.imagem} alt={item.produto.descricao} fill className="object-contain p-1" sizes="48px" />
-                ) : (
-                  <span className="text-xl text-gray-200">📦</span>
-                )}
+                {item.produto.imagem
+                  ? <Image src={item.produto.imagem} alt={item.produto.descricao} fill className="object-contain p-1" sizes="48px" />
+                  : <span className="text-xl text-gray-200">📦</span>}
               </div>
+
+              {/* Código */}
               <span className="text-xs font-mono text-gray-400">{item.produto.cod}</span>
+
+              {/* Descrição */}
               <p className="text-sm font-medium text-gray-800 leading-snug">{item.produto.descricao}</p>
+
+              {/* Unidade */}
               <span className="text-xs text-gray-500 text-center">{item.produto.unidade}</span>
+
+              {/* Quantidade */}
               <div className="flex items-center justify-center gap-1">
                 <button onClick={() => atualizarQtd(item.produto.cod, item.quantidade - 1)} className="w-7 h-7 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors font-bold text-sm">−</button>
                 <input
-                  type="number"
-                  min={1}
-                  value={item.quantidade}
+                  type="number" min={1} value={item.quantidade}
                   onChange={e => atualizarQtd(item.produto.cod, parseInt(e.target.value) || 1)}
                   className="w-16 text-center border border-gray-200 rounded-lg py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
                 <button onClick={() => atualizarQtd(item.produto.cod, item.quantidade + 1)} className="w-7 h-7 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors font-bold text-sm">+</button>
               </div>
-              <div className="flex flex-col items-center gap-1">
-                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${BADGE_FAIXA[faixa]}`}>{LABEL_FAIXA[faixa]}</span>
-                <span className="text-sm font-bold text-gray-700">{fmt(preco)}</span>
+
+              {/* Preço — faixa automática ou promoção editável */}
+              <div className="flex flex-col items-center gap-1.5">
+                {emPromo ? (
+                  <>
+                    <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-purple-100 text-purple-700">Promoção</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-gray-400">R$</span>
+                      <input
+                        type="text"
+                        value={precoInput[item.produto.cod] ?? ''}
+                        onChange={e => setPrecoInput(prev => ({ ...prev, [item.produto.cod]: e.target.value }))}
+                        onBlur={() => commitPreco(item.produto.cod)}
+                        onKeyDown={e => e.key === 'Enter' && commitPreco(item.produto.cod)}
+                        className="w-20 text-center border border-purple-300 rounded-lg py-1 text-sm font-bold text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      />
+                    </div>
+                    <button onClick={() => desativarPromo(item.produto.cod)} className="text-xs text-purple-400 hover:text-purple-600 underline">
+                      Usar faixa
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${BADGE_FAIXA[faixa]}`}>{LABEL_FAIXA[faixa]}</span>
+                    <span className="text-sm font-bold text-gray-700">{fmt(preco)}</span>
+                    <button
+                      onClick={() => ativarPromo(item.produto.cod, preco)}
+                      className="text-xs text-gray-400 hover:text-purple-600 underline"
+                    >
+                      Promoção
+                    </button>
+                  </>
+                )}
               </div>
-              <p className="text-sm font-bold text-gray-900 text-right">{fmt(subtotal)}</p>
+
+              {/* Subtotal */}
+              <p className={`text-sm font-bold text-right ${emPromo ? 'text-purple-700' : 'text-gray-900'}`}>{fmt(subtotal)}</p>
+
+              {/* Remover */}
               <button onClick={() => remover(item.produto.cod)} className="w-8 h-8 rounded-lg text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors flex items-center justify-center text-lg" title="Remover">✕</button>
             </div>
           )
@@ -268,7 +363,12 @@ export default function OrcamentoTela() {
         {/* Rodapé com total */}
         <div className="bg-white rounded-xl border border-gray-200 px-6 py-4 flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-500">{itens.length} {itens.length === 1 ? 'produto' : 'produtos'} · {itens.reduce((a, i) => a + i.quantidade, 0)} unidades no total</p>
+            <p className="text-sm text-gray-500">
+              {itens.length} {itens.length === 1 ? 'produto' : 'produtos'} · {itens.reduce((a, i) => a + i.quantidade, 0)} unidades no total
+            </p>
+            {itens.some(i => i.precoCustom !== null) && (
+              <p className="text-xs text-purple-500 mt-0.5">● {itens.filter(i => i.precoCustom !== null).length} {itens.filter(i => i.precoCustom !== null).length === 1 ? 'item com preço' : 'itens com preços'} promocional</p>
+            )}
             {cliente.condicao && <p className="text-xs text-gray-400 mt-0.5">Cond. pagamento: <span className="font-medium text-gray-600">{cliente.condicao}</span></p>}
           </div>
           <div className="text-right">
