@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useOrcamento, calcularPreco, precoEfetivo } from '@/app/context/OrcamentoContext'
 import Image from 'next/image'
 import Link from 'next/link'
+import ClienteSelectorModal from './ClienteSelectorModal'
 
 function fmt(valor: number) {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -61,6 +62,7 @@ export default function OrcamentoTela() {
   })
   const [precoInput, setPrecoInput] = useState<Record<number, string>>({})
   const [obs, setObs] = useState<Obs>({ tipo: '', texto: '' })
+  const [showSelectorCliente, setShowSelectorCliente] = useState(false)
 
   const temPromo = itens.some(i => i.precoCustom !== null)
   const qtdItensPromo = itens.filter(i => i.precoCustom !== null).length
@@ -259,7 +261,15 @@ export default function OrcamentoTela() {
 
         {/* Dados do cliente */}
         <div className="bg-white rounded-xl border border-gray-100 p-5">
-          <h2 className="text-sm font-bold text-gray-700 mb-4">Dados do Cliente</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold text-gray-700">Dados do Cliente</h2>
+            <button
+              onClick={() => setShowSelectorCliente(true)}
+              className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
+            >
+              🏢 Buscar cliente cadastrado
+            </button>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Campo label="Razão Social">
               <input className={inputCls} value={cliente.razaoSocial} onChange={e => set('razaoSocial', e.target.value)} placeholder="Empresa Ltda." />
@@ -414,6 +424,23 @@ export default function OrcamentoTela() {
           </div>
         </div>
       </main>
+
+      {showSelectorCliente && (
+        <ClienteSelectorModal
+          onSelecionar={c => {
+            setCliente({
+              razaoSocial:  c.razaoSocial       || '',
+              nomeFantasia: c.nomeFantasia       || '',
+              cnpj:         c.cnpj              || '',
+              cidade:       c.cidade && c.estado ? `${c.cidade} — ${c.estado}` : c.cidade || '',
+              telefone:     c.telefone          || '',
+              condicao:     c.condicaoPagamento || '',
+            })
+            setShowSelectorCliente(false)
+          }}
+          onClose={() => setShowSelectorCliente(false)}
+        />
+      )}
     </div>
   )
 }
