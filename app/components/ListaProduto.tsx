@@ -22,29 +22,29 @@ function fmt(valor: number) {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-export default function ListaProduto({ produto }: { produto: Produto }) {
+export default function ListaProduto({ produto, onVerDetalhes }: { produto: Produto; onVerDetalhes: (p: Produto) => void }) {
   const { adicionar, remover, itens } = useOrcamento()
   const noOrcamento = itens.some(i => i.produto.cod === produto.cod)
   const [qtdLivre, setQtdLivre] = useState<string>('1')
 
   return (
     <div className="bg-white px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors">
-      <div className="relative w-12 h-12 shrink-0 bg-gray-50 rounded-lg overflow-hidden flex items-center justify-center">
+      <button onClick={() => onVerDetalhes(produto)} title="Ver detalhes" className="relative w-12 h-12 shrink-0 bg-gray-50 rounded-lg overflow-hidden flex items-center justify-center group hover:ring-2 hover:ring-blue-300 transition-all">
         {produto.imagem ? (
-          <Image src={produto.imagem} alt={produto.descricao} fill className="object-contain p-1" sizes="48px" />
+          <Image src={produto.imagem} alt={produto.descricao} fill className="object-contain p-1 group-hover:scale-110 transition-transform duration-200" sizes="48px" />
         ) : (
           <span className="text-xl text-gray-200">📦</span>
         )}
-      </div>
+      </button>
 
       <div className="w-16 shrink-0">
         <span className="text-xs font-mono text-gray-400">{produto.cod}</span>
       </div>
 
-      <p className="text-sm font-medium text-gray-800 flex-1 min-w-0 truncate">
+      <button onClick={() => onVerDetalhes(produto)} className="text-sm font-medium text-gray-800 flex-1 min-w-0 truncate text-left hover:text-blue-600 transition-colors">
         {produto.descricao}
         <span className="ml-2 text-xs text-gray-400 font-normal">{produto.unidade}</span>
-      </p>
+      </button>
 
       <div className="flex gap-2 shrink-0">
         {noOrcamento ? (

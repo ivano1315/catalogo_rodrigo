@@ -22,7 +22,7 @@ function fmt(valor: number) {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-export default function CartaoProduto({ produto }: { produto: Produto }) {
+export default function CartaoProduto({ produto, onVerDetalhes }: { produto: Produto; onVerDetalhes: (p: Produto) => void }) {
   const { adicionar, remover, itens } = useOrcamento()
   const noOrcamento = itens.some(i => i.produto.cod === produto.cod)
   const [qtdLivre, setQtdLivre] = useState<string>('1')
@@ -35,13 +35,16 @@ export default function CartaoProduto({ produto }: { produto: Produto }) {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col hover:shadow-md transition-shadow overflow-hidden">
-      <div className="relative w-full h-40 bg-gray-50 flex items-center justify-center">
+      <button onClick={() => onVerDetalhes(produto)} className="relative w-full h-40 bg-gray-50 flex items-center justify-center group cursor-pointer">
         {produto.imagem ? (
-          <Image src={produto.imagem} alt={produto.descricao} fill className="object-contain p-2" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw" />
+          <Image src={produto.imagem} alt={produto.descricao} fill className="object-contain p-2 group-hover:scale-105 transition-transform duration-200" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw" />
         ) : (
           <span className="text-4xl text-gray-200">📦</span>
         )}
-      </div>
+        <span className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors rounded-none flex items-end justify-center pb-2 opacity-0 group-hover:opacity-100">
+          <span className="bg-white/90 text-gray-700 text-xs font-medium px-3 py-1 rounded-full shadow">Ver detalhes</span>
+        </span>
+      </button>
 
       <div className="p-4 flex flex-col gap-3 flex-1">
         <div className="flex items-start justify-between gap-2">
@@ -49,7 +52,9 @@ export default function CartaoProduto({ produto }: { produto: Produto }) {
           <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">{produto.unidade}</span>
         </div>
 
-        <p className="text-sm font-medium text-gray-800 leading-snug min-h-[40px]">{produto.descricao}</p>
+        <button onClick={() => onVerDetalhes(produto)} className="text-sm font-medium text-gray-800 leading-snug min-h-[40px] text-left hover:text-blue-600 transition-colors">
+          {produto.descricao}
+        </button>
 
         {noOrcamento ? (
           <button onClick={() => remover(produto.cod)} className="mt-auto w-full py-2 rounded-lg text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors">

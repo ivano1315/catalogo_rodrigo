@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import CartaoProduto from './CartaoProduto'
 import ListaProduto from './ListaProduto'
+import ProdutoModal from './ProdutoModal'
 import { useOrcamento } from '@/app/context/OrcamentoContext'
 
 interface Produto {
@@ -54,6 +55,7 @@ export default function Catalogo() {
   const [dados, setDados] = useState<Resposta | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [vista, setVista] = useState<'card' | 'lista'>('lista')
+  const [produtoModal, setProdutoModal] = useState<Produto | null>(null)
   const { totalItens } = useOrcamento()
 
   useEffect(() => {
@@ -183,7 +185,7 @@ export default function Catalogo() {
         ) : vista === 'card' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {dados?.produtos.map(p => (
-              <CartaoProduto key={p._id} produto={p} />
+              <CartaoProduto key={p._id} produto={p} onVerDetalhes={p => setProdutoModal(p)} />
             ))}
           </div>
         ) : (
@@ -200,7 +202,7 @@ export default function Catalogo() {
             </div>
             <div className="divide-y divide-gray-100">
               {dados?.produtos.map(p => (
-                <ListaProduto key={p._id} produto={p} />
+                <ListaProduto key={p._id} produto={p} onVerDetalhes={p => setProdutoModal(p)} />
               ))}
             </div>
           </div>
@@ -228,6 +230,10 @@ export default function Catalogo() {
           </div>
         )}
       </main>
+
+      {produtoModal && (
+        <ProdutoModal produto={produtoModal} onClose={() => setProdutoModal(null)} />
+      )}
     </div>
   )
 }
