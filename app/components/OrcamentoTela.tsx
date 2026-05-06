@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useOrcamento, calcularPreco, precoEfetivo } from '@/app/context/OrcamentoContext'
 import Image from 'next/image'
-import Link from 'next/link'
 import ClienteSelectorModal from './ClienteSelectorModal'
 
 function fmt(valor: number) {
@@ -232,12 +231,10 @@ export default function OrcamentoTela() {
 
   if (itens.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4">
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 py-20">
         <span className="text-6xl">🛒</span>
         <p className="text-xl font-medium text-gray-600">Nenhum produto no orçamento</p>
-        <Link href="/" className="bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
-          ← Voltar ao catálogo
-        </Link>
+        <p className="text-sm text-gray-400">Acesse o Catálogo e adicione produtos</p>
       </div>
     )
   }
@@ -245,14 +242,13 @@ export default function OrcamentoTela() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link href="/" className="text-gray-400 hover:text-gray-600 transition-colors text-sm">← Catálogo</Link>
-          <h1 className="text-xl font-bold text-gray-900">Orçamento</h1>
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+          <h1 className="text-lg font-bold text-gray-900">Orçamento</h1>
           <span className="text-sm text-gray-400">{itens.length} {itens.length === 1 ? 'item' : 'itens'}</span>
           <div className="ml-auto flex gap-2">
-            <button onClick={limpar} className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors">Limpar tudo</button>
-            <button onClick={exportarExcel} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors">↓ Excel</button>
-            <button onClick={exportarPDF}   className="px-4 py-2 rounded-lg bg-blue-600   text-white text-sm font-medium hover:bg-blue-700   transition-colors">↓ PDF</button>
+            <button onClick={limpar} className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors hidden sm:block">Limpar tudo</button>
+            <button onClick={exportarExcel} className="px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors">↓ Excel</button>
+            <button onClick={exportarPDF}   className="px-3 py-2 rounded-lg bg-blue-600   text-white text-sm font-medium hover:bg-blue-700   transition-colors">↓ PDF</button>
           </div>
         </div>
       </header>

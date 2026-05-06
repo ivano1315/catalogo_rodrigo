@@ -1,11 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import Link from 'next/link'
 import CartaoProduto from './CartaoProduto'
 import ListaProduto from './ListaProduto'
 import ProdutoModal from './ProdutoModal'
-import { useOrcamento } from '@/app/context/OrcamentoContext'
 
 interface Produto {
   _id: string
@@ -56,8 +54,6 @@ export default function Catalogo() {
   const [carregando, setCarregando] = useState(true)
   const [vista, setVista] = useState<'card' | 'lista'>('lista')
   const [produtoModal, setProdutoModal] = useState<Produto | null>(null)
-  const { totalItens } = useOrcamento()
-
   useEffect(() => {
     const timer = setTimeout(() => {
       setBusca(input)
@@ -111,29 +107,12 @@ export default function Catalogo() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Catálogo de Produtos</h1>
-            <p className="text-sm text-gray-500">Tabela Ceará — Abril 2025</p>
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
+          <div className="lg:hidden">
+            <p className="text-base font-bold text-gray-900 leading-none">Waves Plus</p>
+            <p className="text-xs text-gray-400">Tabela Ceará · Abril 2025</p>
           </div>
-          <div className="flex gap-2 sm:ml-auto w-full sm:w-auto items-center">
-            <Link
-              href="/clientes"
-              className="shrink-0 flex items-center gap-2 bg-white border border-gray-200 text-gray-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-            >
-              🏢 Clientes
-            </Link>
-            <Link
-              href="/orcamento"
-              className="relative shrink-0 flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-            >
-              🛒 Orçamento
-              {totalItens > 0 && (
-                <span className="bg-white text-blue-600 text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">
-                  {totalItens}
-                </span>
-              )}
-            </Link>
+          <div className="flex gap-2 ml-auto items-center">
             <div className="relative flex-1 sm:flex-none">
               <input
                 type="text"

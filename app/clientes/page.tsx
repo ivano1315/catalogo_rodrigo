@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import Link from 'next/link'
 
 interface Cliente {
   _id?: string
@@ -188,9 +187,8 @@ export default function ClientesPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link href="/" className="text-gray-400 hover:text-gray-600 transition-colors text-sm">← Catálogo</Link>
-          <h1 className="text-xl font-bold text-gray-900">Clientes</h1>
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-4">
+          <h1 className="text-lg font-bold text-gray-900">Clientes</h1>
           <span className="text-sm text-gray-400">{total} cadastrado{total !== 1 ? 's' : ''}</span>
           <div className="ml-auto flex gap-2">
             <div className="relative">
