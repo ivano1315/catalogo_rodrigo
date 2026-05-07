@@ -29,8 +29,11 @@ async function getProdutosMongo(busca: string, pagina: number) {
 
   await connectDB()
 
+  const filtroCod = busca && !isNaN(Number(busca))
+    ? [{ $expr: { $regexMatch: { input: { $toString: '$cod' }, regex: busca } } }]
+    : []
   const filtro = busca
-    ? { descricao: { $regex: busca, $options: 'i' } }
+    ? { $or: [{ descricao: { $regex: busca, $options: 'i' } }, ...filtroCod] }
     : {}
 
   const total = await Produto.countDocuments(filtro)
@@ -54,6 +57,7 @@ interface Produto {
   inner: number
   pacUnid: number
   unitario: number
+  estoque?: number
 }
 
 export async function GET(req: NextRequest) {

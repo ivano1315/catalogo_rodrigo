@@ -3,44 +3,34 @@ import { connectDB } from '@/lib/mongodb'
 import Produto from '@/models/Produto'
 
 // Parseia o texto extraído do PDF e retorna { cod, estoque }[]
+// Formato: cada produto em uma única linha — código (4-5 dígitos) + dados + estoque (último decimal)
+// Ex: "10119 ABRA NYLON BC 2,5X100 ... PT 4,6000   0 0 14.774,0000"
 function parsearPDF(text: string): { cod: number; estoque: number }[] {
-  const linhas = text.split('\n')
   const resultado: { cod: number; estoque: number }[] = []
 
-  let codAtual: number | null = null
-  let buffer: string[] = []
-
-  const salvarAtual = () => {
-    if (codAtual === null || buffer.length === 0) return
-    // Pega todos os números decimais do buffer e usa o último como estoque
-    const nums = buffer
-      .join('\n')
-      .match(/\d[\d.]*,\d+/g)
-    if (nums && nums.length > 0) {
-      const estoqueRaw = nums[nums.length - 1]
-        .replace(/\./g, '')
-        .replace(',', '.')
-      const estoque = parseFloat(estoqueRaw)
-      if (!isNaN(estoque)) {
-        resultado.push({ cod: codAtual, estoque })
-      }
-    }
-  }
-
-  for (const linha of linhas) {
+  for (const linha of text.split('\n')) {
     const l = linha.trim()
     if (!l) continue
 
+    // Linha deve começar com código de 4-5 dígitos seguido de espaço e outro char
     const m = l.match(/^(\d{4,5})\s+\S/)
-    if (m) {
-      salvarAtual()
-      codAtual = parseInt(m[1])
-      buffer = []
-    } else if (codAtual !== null) {
-      buffer.push(l)
+    if (!m) continue
+
+    const cod = parseInt(m[1])
+
+    // Último número decimal da linha (formato brasileiro: 14.774,0000) = estoque
+    const nums = l.match(/\d[\d.]*,\d+/g)
+    if (!nums || nums.length === 0) continue
+
+    const estoqueRaw = nums[nums.length - 1]
+      .replace(/\./g, '')
+      .replace(',', '.')
+    const estoque = parseFloat(estoqueRaw)
+
+    if (!isNaN(estoque)) {
+      resultado.push({ cod, estoque })
     }
   }
-  salvarAtual()
 
   return resultado
 }
@@ -61,9 +51,12 @@ export async function POST(req: NextRequest) {
 
     const buffer = Buffer.from(await arquivo.arrayBuffer())
 
-    // Extrai texto do PDF com pdf-parse
-    const pdfParse = (await import('pdf-parse')).default
-    const dados = await pdfParse(buffer)
+    // pdf-parse v2: PDFParse recebe { data } no construtor, texto via .getText()
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { PDFParse } = require('pdf-parse')
+    const parser = new PDFParse({ data: new Uint8Array(buffer) })
+    const resultado = await parser.getText() as { text: string }
+    const dados = resultado
     const itens = parsearPDF(dados.text)
 
     if (itens.length === 0) {

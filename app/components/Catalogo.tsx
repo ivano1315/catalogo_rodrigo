@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useLayoutEffect } from 'react'
 import CartaoProduto from './CartaoProduto'
 import ListaProduto from './ListaProduto'
 import ProdutoModal from './ProdutoModal'
@@ -16,6 +16,7 @@ interface Produto {
   inner: number
   pacUnid: number
   unitario: number
+  estoque?: number
 }
 
 interface Resposta {
@@ -52,7 +53,11 @@ export default function Catalogo() {
   const [pagina, setPagina] = useState(1)
   const [dados, setDados] = useState<Resposta | null>(null)
   const [carregando, setCarregando] = useState(true)
-  const [vista, setVista] = useState<'card' | 'lista'>('lista')
+  // Mobile-first: começa em card e muda para lista só em telas largas
+  const [vista, setVista] = useState<'card' | 'lista'>('card')
+  useLayoutEffect(() => {
+    if (window.innerWidth >= 1024) setVista('lista')
+  }, [])
   const [produtoModal, setProdutoModal] = useState<Produto | null>(null)
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -176,6 +181,8 @@ export default function Catalogo() {
         ) : (
           <div className="rounded-xl overflow-hidden border border-gray-100">
             <div className="hidden sm:flex items-center gap-3 bg-gray-100 px-4 py-2 border-b border-gray-200">
+              {/* espaçador para a miniatura */}
+              <div className="w-12 shrink-0" />
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide w-16 shrink-0">Código</span>
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex-1">Descrição</span>
               <div className="flex gap-2 shrink-0">
@@ -184,6 +191,8 @@ export default function Catalogo() {
                 <span className="text-xs font-semibold text-orange-400 uppercase tracking-wide text-center w-[90px]">Unitário</span>
                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-center w-[90px]">Qtd. livre</span>
               </div>
+              {/* espaçador para o botão de remover */}
+              <div className="w-8 shrink-0" />
             </div>
             <div className="divide-y divide-gray-100">
               {dados?.produtos.map(p => (

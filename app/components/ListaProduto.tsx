@@ -15,6 +15,7 @@ interface Produto {
   inner: number
   pacUnid: number
   unitario: number
+  estoque?: number
   imagem?: string | null
 }
 
@@ -41,9 +42,16 @@ export default function ListaProduto({ produto, onVerDetalhes }: { produto: Prod
         <span className="text-xs font-mono text-gray-400">{produto.cod}</span>
       </div>
 
-      <button onClick={() => onVerDetalhes(produto)} className="text-sm font-medium text-gray-800 flex-1 min-w-0 truncate text-left hover:text-blue-600 transition-colors">
-        {produto.descricao}
-        <span className="ml-2 text-xs text-gray-400 font-normal">{produto.unidade}</span>
+      <button onClick={() => onVerDetalhes(produto)} className="flex flex-col items-start flex-1 min-w-0 text-left hover:text-blue-600 transition-colors">
+        <span className="text-sm font-medium text-gray-800 truncate w-full">
+          {produto.descricao}
+          <span className="ml-2 text-xs text-gray-400 font-normal">{produto.unidade}</span>
+        </span>
+        {produto.estoque != null && (
+          <span className={`text-xs mt-0.5 font-medium ${produto.estoque > 0 ? 'text-emerald-500' : 'text-gray-300'}`}>
+            {produto.estoque > 0 ? `${produto.estoque.toLocaleString('pt-BR')} em estoque` : 'Sem estoque'}
+          </span>
+        )}
       </button>
 
       <div className="flex gap-2 shrink-0">
