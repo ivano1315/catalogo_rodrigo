@@ -193,6 +193,16 @@ export default function EstoquePage() {
         {/* ── ETAPA 2: PREVIEW ── */}
         {(etapa === 'preview' || etapa === 'aplicando') && resumo && (
           <div className="space-y-4">
+            {/* Aviso de escopo */}
+            <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex gap-3 items-start text-sm">
+              <span className="text-blue-400 text-lg leading-none mt-0.5">ℹ️</span>
+              <p className="text-blue-700">
+                Somente o campo <strong>estoque</strong> será atualizado nos produtos já cadastrados.
+                Preços, descrições e demais informações não serão alterados.
+                Produtos do PDF que não existem no catálogo são ignorados.
+              </p>
+            </div>
+
             {/* Cards de resumo */}
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-white rounded-xl border border-gray-100 p-4 text-center">
@@ -201,11 +211,11 @@ export default function EstoquePage() {
               </div>
               <div className="bg-white rounded-xl border border-emerald-100 p-4 text-center">
                 <p className="text-2xl font-bold text-emerald-600">{fmt(resumo.cadastrados)}</p>
-                <p className="text-xs text-gray-400 mt-1">Serão atualizados</p>
+                <p className="text-xs text-gray-400 mt-1">Estoques a atualizar</p>
               </div>
-              <div className="bg-white rounded-xl border border-orange-100 p-4 text-center">
-                <p className="text-2xl font-bold text-orange-500">{fmt(resumo.naoEncontrados)}</p>
-                <p className="text-xs text-gray-400 mt-1">Não cadastrados</p>
+              <div className="bg-white rounded-xl border border-gray-100 p-4 text-center">
+                <p className="text-2xl font-bold text-gray-400">{fmt(resumo.naoEncontrados)}</p>
+                <p className="text-xs text-gray-400 mt-1">Ignorados (não cadastrados)</p>
               </div>
             </div>
 
@@ -312,7 +322,7 @@ export default function EstoquePage() {
                     Atualizando...
                   </>
                 ) : (
-                  `✓ Confirmar importação de ${fmt(resumo.cadastrados)} produtos`
+                  `✓ Atualizar estoque de ${fmt(resumo.cadastrados)} produtos`
                 )}
               </button>
             </div>
