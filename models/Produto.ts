@@ -10,6 +10,8 @@ export interface IProduto extends Document {
   inner: number
   pacUnid: number
   unitario: number
+  estoque: number
+  estoqueAtualizadoEm?: Date
 }
 
 const ProdutoSchema = new Schema<IProduto>({
@@ -22,6 +24,8 @@ const ProdutoSchema = new Schema<IProduto>({
   inner: { type: Number, required: true },
   pacUnid: { type: Number, required: true },
   unitario: { type: Number, required: true },
+  estoque: { type: Number, default: 0 },
+  estoqueAtualizadoEm: { type: Date },
 })
 
 ProdutoSchema.index({ descricao: 'text' })

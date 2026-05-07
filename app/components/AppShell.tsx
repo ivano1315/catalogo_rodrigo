@@ -36,10 +36,21 @@ function IconCart({ active }: { active: boolean }) {
   )
 }
 
+function IconBox({ active }: { active: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="21 8 21 21 3 21 3 8" />
+      <rect x="1" y="3" width="22" height="5" />
+      <line x1="10" y1="12" x2="14" y2="12" />
+    </svg>
+  )
+}
+
 const NAV = [
   { href: '/',         label: 'Catálogo',  Icon: IconCatalog  },
   { href: '/clientes', label: 'Clientes',  Icon: IconClients  },
   { href: '/orcamento',label: 'Orçamento', Icon: IconCart     },
+  { href: '/estoque',  label: 'Estoque',   Icon: IconBox      },
 ]
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
