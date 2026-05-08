@@ -13,6 +13,7 @@ export interface ProdutoOrcamento {
   inner: number
   pacUnid: number
   unitario: number
+  estoque?: number | null
   imagem?: string | null
 }
 
@@ -22,9 +23,23 @@ export interface ItemOrcamento {
   precoCustom: number | null  // null = usa faixa automática; number = preço editado manualmente
 }
 
+export interface ClienteOrcamento {
+  razaoSocial: string
+  nomeFantasia: string
+  cnpj: string
+  cidade: string
+  telefone: string
+  condicao: string
+}
+
+export interface OrcamentoEditando {
+  id: string
+  numero: number
+}
+
 export function calcularPreco(produto: ProdutoOrcamento, quantidade: number): { preco: number; faixa: 'master' | 'inner' | 'unitario' } {
   if (quantidade >= produto.cxMaster) return { preco: produto.master, faixa: 'master' }
-  if (quantidade >= produto.cxInner) return { preco: produto.inner, faixa: 'inner' }
+  if (quantidade >= produto.cxInner)  return { preco: produto.inner,  faixa: 'inner' }
   return { preco: produto.unitario, faixa: 'unitario' }
 }
 
@@ -42,12 +57,21 @@ interface OrcamentoContextType {
   limpar: () => void
   total: number
   totalItens: number
+  // edição de orçamento salvo
+  orcamentoEditando: OrcamentoEditando | null
+  clienteEditando: ClienteOrcamento | null
+  obsEditando: { tipo: string; texto: string } | null
+  carregarEdicao: (meta: OrcamentoEditando, itens: ItemOrcamento[], cliente: ClienteOrcamento, obs: { tipo: string; texto: string }) => void
+  carregarRascunho: (itens: ItemOrcamento[], cliente: ClienteOrcamento, obs: { tipo: string; texto: string }) => void
 }
 
 const OrcamentoContext = createContext<OrcamentoContextType | null>(null)
 
 export function OrcamentoProvider({ children }: { children: ReactNode }) {
   const [itens, setItens] = useState<ItemOrcamento[]>([])
+  const [orcamentoEditando, setOrcamentoEditando] = useState<OrcamentoEditando | null>(null)
+  const [clienteEditando, setClienteEditando]     = useState<ClienteOrcamento | null>(null)
+  const [obsEditando, setObsEditando]             = useState<{ tipo: string; texto: string } | null>(null)
 
   const adicionar = useCallback((produto: ProdutoOrcamento, quantidade?: number) => {
     setItens(prev => {
@@ -69,14 +93,45 @@ export function OrcamentoProvider({ children }: { children: ReactNode }) {
     setItens(prev => prev.map(i => i.produto.cod === cod ? { ...i, precoCustom: preco } : i))
   }, [])
 
-  const limpar = useCallback(() => setItens([]), [])
+  const limpar = useCallback(() => {
+    setItens([])
+    setOrcamentoEditando(null)
+    setClienteEditando(null)
+    setObsEditando(null)
+  }, [])
+
+  const carregarRascunho = useCallback((
+    novosItens: ItemOrcamento[],
+    cliente: ClienteOrcamento,
+    obs: { tipo: string; texto: string },
+  ) => {
+    setItens(novosItens)
+    setOrcamentoEditando(null)   // null → salvar fará POST (novo orçamento)
+    setClienteEditando(cliente)
+    setObsEditando(obs)
+  }, [])
+
+  const carregarEdicao = useCallback((
+    meta: OrcamentoEditando,
+    novosItens: ItemOrcamento[],
+    cliente: ClienteOrcamento,
+    obs: { tipo: string; texto: string },
+  ) => {
+    setItens(novosItens)
+    setOrcamentoEditando(meta)
+    setClienteEditando(cliente)
+    setObsEditando(obs)
+  }, [])
 
   const total = itens.reduce((acc, item) => acc + precoEfetivo(item) * item.quantidade, 0)
-
   const totalItens = itens.length
 
   return (
-    <OrcamentoContext.Provider value={{ itens, adicionar, remover, atualizarQtd, atualizarPreco, limpar, total, totalItens }}>
+    <OrcamentoContext.Provider value={{
+      itens, adicionar, remover, atualizarQtd, atualizarPreco, limpar,
+      total, totalItens,
+      orcamentoEditando, clienteEditando, obsEditando, carregarEdicao, carregarRascunho,
+    }}>
       {children}
     </OrcamentoContext.Provider>
   )

@@ -46,11 +46,22 @@ function IconBox({ active }: { active: boolean }) {
   )
 }
 
+function IconHistory({ active }: { active: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="12 8 12 12 14 14" />
+      <path d="M3.05 11a9 9 0 1 1 .5 4" />
+      <polyline points="3 16 3 11 8 11" />
+    </svg>
+  )
+}
+
 const NAV = [
-  { href: '/',         label: 'Catálogo',  Icon: IconCatalog  },
-  { href: '/clientes', label: 'Clientes',  Icon: IconClients  },
-  { href: '/orcamento',label: 'Orçamento', Icon: IconCart     },
-  { href: '/estoque',  label: 'Estoque',   Icon: IconBox      },
+  { href: '/',          label: 'Catálogo',  Icon: IconCatalog  },
+  { href: '/clientes',  label: 'Clientes',  Icon: IconClients  },
+  { href: '/orcamento', label: 'Orçamento', Icon: IconCart     },
+  { href: '/historico', label: 'Histórico', Icon: IconHistory  },
+  { href: '/estoque',   label: 'Estoque',   Icon: IconBox      },
 ]
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -127,7 +138,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   </span>
                 )}
               </div>
-              <span className={`text-[11px] font-medium ${active ? 'text-blue-600' : 'text-gray-400'}`}>
+              <span className={`text-[10px] font-medium ${active ? 'text-blue-600' : 'text-gray-400'}`}>
                 {label}
               </span>
               {active && (

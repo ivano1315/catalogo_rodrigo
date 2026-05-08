@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useOrcamento, calcularPreco, precoEfetivo } from '@/app/context/OrcamentoContext'
 import Image from 'next/image'
 import ClienteSelectorModal from './ClienteSelectorModal'
@@ -54,17 +54,75 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
 const inputCls = 'border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white'
 
 export default function OrcamentoTela() {
-  const { itens, remover, atualizarQtd, atualizarPreco, limpar, total } = useOrcamento()
+  const { itens, remover, atualizarQtd, atualizarPreco, limpar, total, orcamentoEditando, clienteEditando, obsEditando } = useOrcamento()
 
   const [cliente, setCliente] = useState<Cliente>({
     razaoSocial: '', nomeFantasia: '', cnpj: '', cidade: '', telefone: '', condicao: '',
   })
+
   const [precoInput, setPrecoInput] = useState<Record<number, string>>({})
   const [obs, setObs] = useState<Obs>({ tipo: '', texto: '' })
+
+  // Sincroniza cliente, precoInput e obs ao carregar um orçamento para edição
+  useEffect(() => {
+    if (!clienteEditando) return
+    setCliente({
+      razaoSocial:  clienteEditando.razaoSocial  || '',
+      nomeFantasia: clienteEditando.nomeFantasia || '',
+      cnpj:         clienteEditando.cnpj         || '',
+      cidade:       clienteEditando.cidade       || '',
+      telefone:     clienteEditando.telefone     || '',
+      condicao:     clienteEditando.condicao     || '',
+    })
+  }, [clienteEditando])
+
+  // Inicializa precoInput e obs ao carregar edição
+  useEffect(() => {
+    if (!orcamentoEditando || itens.length === 0) return
+    const init: Record<number, string> = {}
+    itens.forEach(item => {
+      if (item.precoCustom !== null) {
+        init[item.produto.cod] = String(item.precoCustom).replace('.', ',')
+      }
+    })
+    setPrecoInput(init)
+    if (obsEditando) setObs({ tipo: obsEditando.tipo || '', texto: obsEditando.texto || '' })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orcamentoEditando])
   const [showSelectorCliente, setShowSelectorCliente] = useState(false)
+  const [salvando, setSalvando] = useState(false)
+  const [salvoNum, setSalvoNum] = useState<number | null>(null)
 
   const temPromo = itens.some(i => i.precoCustom !== null)
   const qtdItensPromo = itens.filter(i => i.precoCustom !== null).length
+  const totalUnidades = itens.reduce((a, i) => a + i.quantidade, 0)
+
+  // Breakdown de preços
+  const subtotalSemDesconto = itens.reduce((a, item) =>
+    a + item.produto.unitario * item.quantidade, 0)
+  const descontoFaixa = itens.reduce((a, item) => {
+    const { preco: precoFaixa } = calcularPreco(item.produto, item.quantidade)
+    return a + Math.max(0, item.produto.unitario - precoFaixa) * item.quantidade
+  }, 0)
+  const descontoPromo = itens.reduce((a, item) => {
+    if (item.precoCustom === null) return a
+    const { preco: precoFaixa } = calcularPreco(item.produto, item.quantidade)
+    return a + Math.max(0, precoFaixa - item.precoCustom) * item.quantidade
+  }, 0)
+  const totalEconomia = descontoFaixa + descontoPromo
+  const pctEconomia = subtotalSemDesconto > 0
+    ? Math.round((totalEconomia / subtotalSemDesconto) * 100) : 0
+
+  // Ruptura de estoque
+  const itensRuptura = itens
+    .filter(item => item.produto.estoque != null && item.quantidade > (item.produto.estoque ?? 0))
+    .map(item => ({
+      item,
+      ruptura: item.quantidade - (item.produto.estoque ?? 0),
+      valorRuptura: precoEfetivo(item) * (item.quantidade - (item.produto.estoque ?? 0)),
+    }))
+  const valorTotalRuptura = itensRuptura.reduce((a, r) => a + r.valorRuptura, 0)
+  const totalUnidadesRuptura = itensRuptura.reduce((a, r) => a + r.ruptura, 0)
 
   function set(campo: keyof Cliente, valor: string) {
     setCliente(prev => ({ ...prev, [campo]: valor }))
@@ -90,6 +148,75 @@ export default function OrcamentoTela() {
     const t = TIPO_DESCONTO.find(t => t.value === obs.tipo)
     if (!t) return ''
     return obs.texto ? `${t.label} — ${obs.texto}` : t.label
+  }
+
+  async function salvarOrcamento() {
+    setSalvando(true)
+    setSalvoNum(null)
+    try {
+      const itensSalvos = itens.map(item => {
+        const { faixa } = calcularPreco(item.produto, item.quantidade)
+        const preco = precoEfetivo(item)
+        const estoqueDisponivel = item.produto.estoque ?? null
+        const ruptura = estoqueDisponivel != null
+          ? Math.max(0, item.quantidade - estoqueDisponivel) : 0
+        return {
+          cod:        item.produto.cod,
+          descricao:  item.produto.descricao,
+          unidade:    item.produto.unidade,
+          quantidade: item.quantidade,
+          faixa:      item.precoCustom !== null ? 'promocao' : faixa,
+          preco,
+          precoCustom: item.precoCustom,
+          subtotal:   preco * item.quantidade,
+          cxMaster:   item.produto.cxMaster,
+          master:     item.produto.master,
+          cxInner:    item.produto.cxInner,
+          inner:      item.produto.inner,
+          pacUnid:    item.produto.pacUnid,
+          unitario:   item.produto.unitario,
+          estoqueDisponivel,
+          ruptura,
+          valorRuptura: preco * ruptura,
+        }
+      })
+
+      const totalRuptura      = itensSalvos.reduce((a, i) => a + i.ruptura, 0)
+      const valorTotalRupturaSalvo = itensSalvos.reduce((a, i) => a + i.valorRuptura, 0)
+
+      const payload = {
+        cliente:    { ...cliente },
+        itens:      itensSalvos,
+        totalGeral: total,
+        totalRuptura,
+        valorTotalRuptura: valorTotalRupturaSalvo,
+        observacao: { tipo: obs.tipo, texto: obs.texto },
+        status:     'rascunho',
+      }
+
+      let json
+      if (orcamentoEditando) {
+        // Atualiza orçamento existente
+        const res = await fetch(`/api/orcamentos/${orcamentoEditando.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        json = await res.json()
+        if (json.ok) setSalvoNum(orcamentoEditando.numero)
+      } else {
+        // Cria novo orçamento
+        const res = await fetch('/api/orcamentos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        json = await res.json()
+        if (json.ok) setSalvoNum(json.numero)
+      }
+    } finally {
+      setSalvando(false)
+    }
   }
 
   async function exportarPDF() {
@@ -244,9 +371,22 @@ export default function OrcamentoTela() {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
           <h1 className="text-lg font-bold text-gray-900">Orçamento</h1>
-          <span className="text-sm text-gray-400">{itens.length} {itens.length === 1 ? 'item' : 'itens'}</span>
+          {orcamentoEditando ? (
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
+              ✏️ Editando #{orcamentoEditando.numero}
+            </span>
+          ) : (
+            <span className="text-sm text-gray-400">{itens.length} {itens.length === 1 ? 'item' : 'itens'}</span>
+          )}
           <div className="ml-auto flex gap-2">
-            <button onClick={limpar} className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors hidden sm:block">Limpar tudo</button>
+            {orcamentoEditando ? (
+              <button onClick={limpar} className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors hidden sm:block">+ Novo orçamento</button>
+            ) : (
+              <button onClick={limpar} className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors hidden sm:block">Limpar tudo</button>
+            )}
+            <button onClick={salvarOrcamento} disabled={salvando} className="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50">
+              {salvando ? '…' : '💾 Salvar'}
+            </button>
             <button onClick={exportarExcel} className="px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors">↓ Excel</button>
             <button onClick={exportarPDF}   className="px-3 py-2 rounded-lg bg-blue-600   text-white text-sm font-medium hover:bg-blue-700   transition-colors">↓ PDF</button>
           </div>
@@ -308,9 +448,11 @@ export default function OrcamentoTela() {
           const subtotal = preco * item.quantidade
           const emPromo  = item.precoCustom !== null
           const pct      = emPromo ? descPct(precoOriginal, preco) : 0
+          const rupturaItem = item.produto.estoque != null && item.quantidade > (item.produto.estoque ?? 0)
+            ? item.quantidade - (item.produto.estoque ?? 0) : 0
 
           return (
-            <div key={item.produto.cod} className={`bg-white rounded-xl border px-4 py-3 grid grid-cols-1 md:grid-cols-[48px_64px_1fr_64px_130px_180px_110px_40px] gap-3 items-center hover:shadow-sm transition-shadow ${emPromo ? 'border-purple-200 bg-purple-50/20' : 'border-gray-100'}`}>
+            <div key={item.produto.cod} className={`bg-white rounded-xl border px-4 py-3 grid grid-cols-1 md:grid-cols-[48px_64px_1fr_64px_130px_180px_110px_40px] gap-3 items-center hover:shadow-sm transition-shadow ${rupturaItem > 0 ? 'border-orange-200 bg-orange-50/10' : emPromo ? 'border-purple-200 bg-purple-50/20' : 'border-gray-100'}`}>
 
               {/* Imagem */}
               <div className="relative w-12 h-12 bg-gray-50 rounded-lg overflow-hidden flex items-center justify-center shrink-0">
@@ -320,7 +462,14 @@ export default function OrcamentoTela() {
               </div>
 
               <span className="text-xs font-mono text-gray-400">{item.produto.cod}</span>
-              <p className="text-sm font-medium text-gray-800 leading-snug">{item.produto.descricao}</p>
+              <div>
+                <p className="text-sm font-medium text-gray-800 leading-snug">{item.produto.descricao}</p>
+                {rupturaItem > 0 && (
+                  <p className="text-xs text-orange-500 font-medium mt-0.5">
+                    ⚠️ {rupturaItem} un em falta · estoque: {item.produto.estoque ?? 0}
+                  </p>
+                )}
+              </div>
               <span className="text-xs text-gray-500 text-center">{item.produto.unidade}</span>
 
               {/* Quantidade */}
@@ -398,28 +547,118 @@ export default function OrcamentoTela() {
           </div>
         )}
 
-        {/* Rodapé com total */}
-        <div className="bg-white rounded-xl border border-gray-200 px-6 py-4 flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-500">
-              {itens.length} {itens.length === 1 ? 'produto' : 'produtos'} · {itens.reduce((a, i) => a + i.quantidade, 0)} unidades no total
-            </p>
-            {temPromo && (
-              <p className="text-xs text-purple-500 mt-0.5">
-                ● {qtdItensPromo} {qtdItensPromo === 1 ? 'item com preço' : 'itens com preços'} promocional
-                {obs.tipo && <span className="ml-1 text-purple-400">· {TIPO_DESCONTO.find(t => t.value === obs.tipo)?.label}</span>}
-              </p>
-            )}
-            {cliente.condicao && (
-              <p className="text-xs text-gray-400 mt-0.5">Cond. pagamento: <span className="font-medium text-gray-600">{cliente.condicao}</span></p>
-            )}
+        {/* Ruptura de Estoque */}
+        {itensRuptura.length > 0 && (
+          <div className="bg-white rounded-xl border border-orange-200 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-base">🔴</span>
+              <h2 className="text-sm font-bold text-orange-700">Ruptura de Estoque</h2>
+              <span className="text-xs bg-orange-100 text-orange-600 font-semibold px-2 py-0.5 rounded-full">
+                {itensRuptura.length} {itensRuptura.length === 1 ? 'item' : 'itens'} · {totalUnidadesRuptura} un sem cobertura
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-gray-400 uppercase tracking-wide border-b border-gray-100">
+                    <th className="text-left pb-2 font-semibold">Produto</th>
+                    <th className="text-center pb-2 font-semibold">Pedido</th>
+                    <th className="text-center pb-2 font-semibold">Estoque</th>
+                    <th className="text-center pb-2 font-semibold text-orange-500">Em falta</th>
+                    <th className="text-right pb-2 font-semibold">Val. em falta</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {itensRuptura.map(({ item, ruptura, valorRuptura }) => (
+                    <tr key={item.produto.cod}>
+                      <td className="py-2 text-gray-700 font-medium pr-4">
+                        <span className="font-mono text-gray-400 mr-1">{item.produto.cod}</span>
+                        {item.produto.descricao}
+                      </td>
+                      <td className="py-2 text-center text-gray-600">{item.quantidade}</td>
+                      <td className="py-2 text-center text-gray-500">{item.produto.estoque ?? '—'}</td>
+                      <td className="py-2 text-center font-bold text-orange-600">{ruptura}</td>
+                      <td className="py-2 text-right text-orange-700 font-medium">{fmt(valorRuptura)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-orange-200">
+                    <td colSpan={4} className="pt-2 text-orange-700 font-bold text-xs">Total em falta</td>
+                    <td className="pt-2 text-right font-bold text-orange-700">{fmt(valorTotalRuptura)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
-          <div className="text-right">
-            <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold">Total</p>
-            <p className="text-2xl font-bold text-gray-900">{fmt(total)}</p>
+        )}
+
+        {/* Rodapé com breakdown de valores */}
+        <div className="bg-white rounded-xl border border-gray-200 px-6 py-5">
+          <div className="flex flex-col sm:flex-row sm:justify-between gap-4">
+
+            {/* Resumo do pedido */}
+            <div className="space-y-1">
+              <p className="text-sm text-gray-500">
+                {itens.length} {itens.length === 1 ? 'produto' : 'produtos'} · {totalUnidades} unidades
+              </p>
+              {temPromo && (
+                <p className="text-xs text-purple-500">
+                  ● {qtdItensPromo} {qtdItensPromo === 1 ? 'item com preço' : 'itens com preços'} promocional
+                  {obs.tipo && <span className="ml-1 text-purple-400">· {TIPO_DESCONTO.find(t => t.value === obs.tipo)?.label}</span>}
+                </p>
+              )}
+              {itensRuptura.length > 0 && (
+                <p className="text-xs text-orange-500">
+                  ⚠️ {itensRuptura.length} {itensRuptura.length === 1 ? 'item' : 'itens'} com ruptura · {fmt(valorTotalRuptura)} a repor
+                </p>
+              )}
+              {cliente.condicao && (
+                <p className="text-xs text-gray-400">Cond. pagamento: <span className="font-medium text-gray-600">{cliente.condicao}</span></p>
+              )}
+            </div>
+
+            {/* Breakdown de preços */}
+            <div className="sm:min-w-[240px]">
+              <div className="flex justify-between text-sm text-gray-500 mb-1.5">
+                <span>Subtotal s/ desconto</span>
+                <span>{fmt(subtotalSemDesconto)}</span>
+              </div>
+              {descontoFaixa > 0 && (
+                <div className="flex justify-between text-sm text-emerald-600 mb-1.5">
+                  <span>Desconto de faixa</span>
+                  <span>− {fmt(descontoFaixa)}</span>
+                </div>
+              )}
+              {descontoPromo > 0 && (
+                <div className="flex justify-between text-sm text-purple-600 mb-1.5">
+                  <span>Desconto de promoção</span>
+                  <span>− {fmt(descontoPromo)}</span>
+                </div>
+              )}
+              <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between items-baseline">
+                <span className="text-xs text-gray-400 uppercase tracking-wide font-semibold">Total</span>
+                <span className="text-2xl font-bold text-gray-900">{fmt(total)}</span>
+              </div>
+              {totalEconomia > 0 && (
+                <p className="text-right text-xs text-emerald-600 font-medium mt-1">
+                  💚 Economia de {fmt(totalEconomia)} ({pctEconomia}%)
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </main>
+
+      {/* Toast de confirmação de salvamento */}
+      {salvoNum !== null && (
+        <div className="fixed bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-fade-in">
+          <span className="text-green-400">✓</span>
+          <span>Orçamento <strong>#{salvoNum}</strong> {orcamentoEditando ? 'atualizado' : 'salvo'} com sucesso!</span>
+          <a href="/historico" className="underline text-blue-300 hover:text-blue-200 ml-1">Ver histórico</a>
+          <button onClick={() => setSalvoNum(null)} className="ml-2 text-gray-400 hover:text-white">✕</button>
+        </div>
+      )}
 
       {showSelectorCliente && (
         <ClienteSelectorModal
