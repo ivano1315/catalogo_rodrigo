@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useOrcamento, calcularPreco, precoEfetivo } from '@/app/context/OrcamentoContext'
 import Image from 'next/image'
 import ClienteSelectorModal from './ClienteSelectorModal'
@@ -54,6 +55,7 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
 const inputCls = 'border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white'
 
 export default function OrcamentoTela() {
+  const router = useRouter()
   const { itens, remover, atualizarQtd, atualizarPreco, limpar, total, orcamentoEditando, clienteEditando, obsEditando } = useOrcamento()
 
   const [cliente, setCliente] = useState<Cliente>({
@@ -91,7 +93,6 @@ export default function OrcamentoTela() {
   }, [orcamentoEditando])
   const [showSelectorCliente, setShowSelectorCliente] = useState(false)
   const [salvando, setSalvando] = useState(false)
-  const [salvoNum, setSalvoNum] = useState<number | null>(null)
 
   const temPromo = itens.some(i => i.precoCustom !== null)
   const qtdItensPromo = itens.filter(i => i.precoCustom !== null).length
@@ -152,7 +153,6 @@ export default function OrcamentoTela() {
 
   async function salvarOrcamento() {
     setSalvando(true)
-    setSalvoNum(null)
     try {
       const itensSalvos = itens.map(item => {
         const { faixa } = calcularPreco(item.produto, item.quantidade)
@@ -194,7 +194,8 @@ export default function OrcamentoTela() {
         status:     'rascunho',
       }
 
-      let json
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let json: any
       if (orcamentoEditando) {
         // Atualiza orçamento existente
         const res = await fetch(`/api/orcamentos/${orcamentoEditando.id}`, {
@@ -203,7 +204,6 @@ export default function OrcamentoTela() {
           body: JSON.stringify(payload),
         })
         json = await res.json()
-        if (json.ok) setSalvoNum(orcamentoEditando.numero)
       } else {
         // Cria novo orçamento
         const res = await fetch('/api/orcamentos', {
@@ -212,7 +212,11 @@ export default function OrcamentoTela() {
           body: JSON.stringify(payload),
         })
         json = await res.json()
-        if (json.ok) setSalvoNum(json.numero)
+      }
+
+      if (json?.ok) {
+        limpar()                   // limpa contexto (itens + edição em memória)
+        router.push('/historico')  // redireciona para o histórico
       }
     } finally {
       setSalvando(false)
@@ -649,16 +653,6 @@ export default function OrcamentoTela() {
           </div>
         </div>
       </main>
-
-      {/* Toast de confirmação de salvamento */}
-      {salvoNum !== null && (
-        <div className="fixed bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-fade-in">
-          <span className="text-green-400">✓</span>
-          <span>Orçamento <strong>#{salvoNum}</strong> {orcamentoEditando ? 'atualizado' : 'salvo'} com sucesso!</span>
-          <a href="/historico" className="underline text-blue-300 hover:text-blue-200 ml-1">Ver histórico</a>
-          <button onClick={() => setSalvoNum(null)} className="ml-2 text-gray-400 hover:text-white">✕</button>
-        </div>
-      )}
 
       {showSelectorCliente && (
         <ClienteSelectorModal
