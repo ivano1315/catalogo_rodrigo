@@ -73,7 +73,7 @@ const ClienteSchema = new Schema<IClienteSnapshot>({
 }, { _id: false })
 
 const OrcamentoSchema = new Schema<IOrcamento>({
-  numero:     { type: Number, required: true, unique: true },
+  numero:     { type: Number, required: true },   // display-only, sem unique (usa _id como ref interna)
   criadoEm:   { type: Date, default: Date.now },
   cliente:    { type: ClienteSchema, required: true },
   itens:      { type: [ItemSchema], required: true },

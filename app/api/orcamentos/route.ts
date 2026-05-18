@@ -32,9 +32,10 @@ export async function POST(req: NextRequest) {
     await connectDB()
     const body = await req.json()
 
-    // Número sequencial baseado no maior numero existente (resistente a deleções)
+    // Número sequencial baseado no maior existente (display-only; _id é a ref interna)
     const ultimo = await Orcamento.findOne({}, { numero: 1 }).sort({ numero: -1 }).lean()
     const numero = (ultimo?.numero ?? 0) + 1
+    // sem unique: true no numero → nunca vai colidir; _id (ObjectId) é a chave única real
 
     const orcamento = await Orcamento.create({ ...body, numero })
     return NextResponse.json({ ok: true, numero, _id: orcamento._id }, { status: 201 })

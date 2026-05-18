@@ -20,7 +20,17 @@ export async function connectDB() {
   if (cached.conn) return cached.conn
 
   if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI).then((m) => m)
+    cached.promise = mongoose.connect(MONGODB_URI).then(async (m) => {
+      // Remove o índice único de 'numero' caso ainda exista de versões anteriores.
+      // O _id (ObjectId) é a referência interna; 'numero' é apenas display.
+      try {
+        await m.connection.collection('orcamentos').dropIndex('numero_1')
+        console.log('[DB] Índice único de numero removido com sucesso')
+      } catch {
+        // índice já não existe — normal em ambientes novos
+      }
+      return m
+    })
   }
 
   cached.conn = await cached.promise
