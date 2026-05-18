@@ -93,6 +93,7 @@ export default function OrcamentoTela() {
   }, [orcamentoEditando])
   const [showSelectorCliente, setShowSelectorCliente] = useState(false)
   const [salvando, setSalvando] = useState(false)
+  const [erroSalvar, setErroSalvar] = useState<string | null>(null)
 
   const temPromo = itens.some(i => i.precoCustom !== null)
   const qtdItensPromo = itens.filter(i => i.precoCustom !== null).length
@@ -153,6 +154,7 @@ export default function OrcamentoTela() {
 
   async function salvarOrcamento() {
     setSalvando(true)
+    setErroSalvar(null)
     try {
       const itensSalvos = itens.map(item => {
         const { faixa } = calcularPreco(item.produto, item.quantidade)
@@ -215,9 +217,13 @@ export default function OrcamentoTela() {
       }
 
       if (json?.ok) {
-        limpar()                   // limpa contexto (itens + edição em memória)
-        router.push('/historico')  // redireciona para o histórico
+        router.push('/historico')  // navega primeiro
+        limpar()                   // limpa contexto após iniciar navegação
+      } else {
+        setErroSalvar(json?.error ?? 'Erro ao salvar. Tente novamente.')
       }
+    } catch (e) {
+      setErroSalvar('Erro de conexão. Verifique sua internet e tente novamente.')
     } finally {
       setSalvando(false)
     }
@@ -398,6 +404,13 @@ export default function OrcamentoTela() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-4">
+        {erroSalvar && (
+          <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">
+            <span className="text-base">⚠️</span>
+            <span className="flex-1">{erroSalvar}</span>
+            <button onClick={() => setErroSalvar(null)} className="text-red-400 hover:text-red-600 font-bold">✕</button>
+          </div>
+        )}
 
         {/* Dados do cliente */}
         <div className="bg-white rounded-xl border border-gray-100 p-5">

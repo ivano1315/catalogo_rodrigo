@@ -32,9 +32,9 @@ export async function POST(req: NextRequest) {
     await connectDB()
     const body = await req.json()
 
-    // Número sequencial simples (conta os existentes + 1)
-    const total = await Orcamento.countDocuments()
-    const numero = total + 1
+    // Número sequencial baseado no maior numero existente (resistente a deleções)
+    const ultimo = await Orcamento.findOne({}, { numero: 1 }).sort({ numero: -1 }).lean()
+    const numero = (ultimo?.numero ?? 0) + 1
 
     const orcamento = await Orcamento.create({ ...body, numero })
     return NextResponse.json({ ok: true, numero, _id: orcamento._id }, { status: 201 })
