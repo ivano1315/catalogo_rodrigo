@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback, useLayoutEffect } from 'react'
+import Link from 'next/link'
 import CartaoProduto from './CartaoProduto'
 import ListaProduto from './ListaProduto'
 import ProdutoModal from './ProdutoModal'
+import { useOrcamento } from '@/app/context/OrcamentoContext'
 
 interface Produto {
   _id: string
@@ -48,6 +50,7 @@ function IconList() {
 }
 
 export default function Catalogo() {
+  const { orcamentoEditando, totalItens } = useOrcamento()
   const [input, setInput] = useState('')
   const [busca, setBusca] = useState('')
   const [pagina, setPagina] = useState(1)
@@ -156,6 +159,26 @@ export default function Catalogo() {
           </div>
         </div>
       </header>
+
+      {/* Banner de modo edição */}
+      {orcamentoEditando && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center gap-3">
+          <span className="text-amber-600 text-sm">✏️ Editando orçamento <strong>#{orcamentoEditando.numero}</strong> — selecione produtos para adicionar</span>
+          <Link href="/orcamento" className="ml-auto text-xs font-semibold text-amber-700 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-3 py-1.5 rounded-lg transition-colors shrink-0">
+            ← Voltar ao orçamento
+          </Link>
+        </div>
+      )}
+
+      {/* Banner de itens no orçamento (modo normal) */}
+      {!orcamentoEditando && totalItens > 0 && (
+        <div className="bg-blue-50 border-b border-blue-100 px-4 py-2.5 flex items-center gap-3">
+          <span className="text-blue-600 text-sm">{totalItens} {totalItens === 1 ? 'produto adicionado' : 'produtos adicionados'} ao orçamento</span>
+          <Link href="/orcamento" className="ml-auto text-xs font-semibold text-blue-700 bg-blue-100 hover:bg-blue-200 border border-blue-200 px-3 py-1.5 rounded-lg transition-colors shrink-0">
+            Ver orçamento →
+          </Link>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         {dados && (

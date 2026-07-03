@@ -76,7 +76,7 @@ export function OrcamentoProvider({ children }: { children: ReactNode }) {
   const adicionar = useCallback((produto: ProdutoOrcamento, quantidade?: number) => {
     setItens(prev => {
       if (prev.find(i => i.produto.cod === produto.cod)) return prev
-      const qtdInicial = quantidade ?? produto.pacUnid ?? 1
+      const qtdInicial = Math.max(1, quantidade ?? produto.pacUnid ?? 1)
       return [...prev, { produto, quantidade: qtdInicial, precoCustom: null }]
     })
   }, [])

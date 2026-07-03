@@ -69,13 +69,13 @@ export default function HistoricoPage() {
 
   useEffect(() => { carregar() }, [carregar])
 
-  async function atualizarStatus(id: string, status: string) {
+  async function atualizarStatus(id: string, status: string, recarregar = true) {
     await fetch(`/api/orcamentos/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     })
-    carregar()
+    if (recarregar) carregar()
   }
 
   async function handleEditar(o: Orcamento) {
@@ -122,8 +122,8 @@ export default function HistoricoPage() {
       ? { tipo: '', texto: o.observacao as unknown as string }
       : { tipo: o.observacao?.tipo || '', texto: o.observacao?.texto || '' }
 
-    // Marca como em edição no banco
-    await atualizarStatus(o._id, 'em_edicao')
+    // Marca como em edição no banco (sem recarregar a lista — já estamos navegando)
+    await atualizarStatus(o._id, 'em_edicao', false)
 
     carregarEdicao({ id: o._id, numero: o.numero }, itensReconstruidos, clienteSnap, obsSnap)
     router.push('/orcamento')
